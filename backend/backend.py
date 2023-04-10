@@ -1,13 +1,20 @@
 import json
 import os
 
+import mysql.connector
 import paho.mqtt.client as paho
-import serial
 from dotenv import find_dotenv, load_dotenv
 from paho import mqtt
 
 
 load_dotenv(find_dotenv())
+
+dbConfig = dict(
+    host=os.environ.get('DB_HOST'),
+    database=os.environ.get('DB_DATABASE'),
+    user=os.environ.get('DB_USER'),
+    password=os.environ.get('DB_PASSWORD')
+)
 
 MQTT_CONFIG = dict(
     host=os.environ.get('MQTT_HOST'),
@@ -33,6 +40,30 @@ def on_subscribe(client, userdata, mid, granted_qos, properties=None):
 def on_message(client, userdata, msg):
     print(msg.topic + ' ' + str(msg.qos) + ' ' + str(msg.payload))
 
+    group, sensor = msg.topic.split('/')
+    if group == 'sensor':
+        reading = int(msg.payload)
+        try:
+            conn = mysql.connector.connect(**dbConfig)
+
+            conn.autocommit = False
+            cursor = conn.cursor()
+
+            insert_query = f"""
+                INSERT INTO {sensor}Log(reading)
+                VALUES ({reading})
+            """
+
+            cursor.execute(insert_query)
+            conn.commit()
+        except mysql.connector.Error as error:
+            print(f'Error: {error}')
+            conn.rollback()
+        finally:
+            if conn.is_connected():
+                cursor.close()
+                conn.close()
+
 
 def setup_mqtt():
     global mqtt_client
@@ -45,21 +76,9 @@ def setup_mqtt():
     mqtt_client.on_message = on_message
     mqtt_client.on_publish = on_publish
     mqtt_client.subscribe('sensor/#', qos=1)
-    mqtt_client.loop_start()
+    mqtt_client.loop_forever()
 
 
 if __name__ == '__main__':
-    print('Starting edge device...')
+    print('Starting backend server...')
     setup_mqtt()
-    ser = serial.Serial('/dev/tty.usbmodem1101', 115200)
-
-    while True:
-        line = ser.readline().decode('utf-8').rstrip()
-        try:
-            data = json.loads(line)
-            mqtt_client.publish('sensor/temperature', payload=data['temperature'], qos=1)
-            mqtt_client.publish('sensor/humidity', payload=data['humidity'], qos=1)
-            mqtt_client.publish('sensor/soilMoisture', payload=data['soilMoisture'], qos=1)
-        except json.decoder.JSONDecodeError:
-            print('Error: Invalid JSON')
-            continue
