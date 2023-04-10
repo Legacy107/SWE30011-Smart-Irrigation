@@ -1,11 +1,9 @@
-import json
 import os
 
 import mysql.connector
 import paho.mqtt.client as paho
 from dotenv import find_dotenv, load_dotenv
 from paho import mqtt
-
 
 load_dotenv(find_dotenv())
 
@@ -26,19 +24,19 @@ mqtt_client = paho.Client()
 
 
 def on_connect(client, userdata, flags, rc, properties=None):
-    print('CONNACK received with code %s.' % rc)
+    print(f'CONNACK received with code {rc}.')
 
 
 def on_publish(client, userdata, mid, properties=None):
-    print('mid: ' + str(mid))
+    print(f'mid: {str(mid)}')
 
 
 def on_subscribe(client, userdata, mid, granted_qos, properties=None):
-    print('Subscribed: ' + str(mid) + ' ' + str(granted_qos))
+    print(f'Subscribed: {str(mid)} {str(granted_qos)}')
 
 
 def on_message(client, userdata, msg):
-    print(msg.topic + ' ' + str(msg.qos) + ' ' + str(msg.payload))
+    print(msg.topic, str(msg.qos), str(msg.payload), sep=' ')
 
     group, sensor = msg.topic.split('/')
     if group == 'sensor':
