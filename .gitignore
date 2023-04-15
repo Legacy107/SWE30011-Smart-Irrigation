@@ -35,3 +35,8 @@ instance/
 # virtualenv
 venv/
 ENV/
+
+# Mac OS X file system metadata
+.DS_store
+
+.vscode/
