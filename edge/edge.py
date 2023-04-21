@@ -5,9 +5,14 @@ import paho.mqtt.client as paho
 import serial
 from dotenv import find_dotenv, load_dotenv
 from paho import mqtt
+import pickle
 
 
 load_dotenv(find_dotenv())
+
+sensors = ['soilMoisture', 'temperature', 'humidity']
+
+model = pickle.load(open(os.environ.get('MODEL_FILE'), 'rb'))
 
 MQTT_CONFIG = dict(
     host=os.environ.get('MQTT_HOST'),
@@ -48,18 +53,28 @@ def setup_mqtt():
     mqtt_client.loop_start()
 
 
+def controlIrrigation(data):
+    prediction = model.predict([data])
+    if prediction[0]:
+        ser.write(b'1')
+    else:
+        ser.write(b'0')
+
+
 if __name__ == '__main__':
     print('Starting edge device...')
     setup_mqtt()
     ser = serial.Serial('/dev/tty.usbmodem1101', 115200)
 
     while True:
-        line = ser.readline().decode('utf-8').rstrip()
-        try:
-            data = json.loads(line)
-            mqtt_client.publish('sensor/temperature', payload=data['temperature'], qos=1)
-            mqtt_client.publish('sensor/humidity', payload=data['humidity'], qos=1)
-            mqtt_client.publish('sensor/soilMoisture', payload=data['soilMoisture'], qos=1)
-        except json.decoder.JSONDecodeError:
-            print('Error: Invalid JSON')
-            continue
+        if ser.readable():
+            line = ser.readline().decode('utf-8').rstrip()
+            try:
+                data = json.loads(line)
+                mqtt_client.publish('sensor/soilMoisture', payload=data['soilMoisture'], qos=1)
+                mqtt_client.publish('sensor/temperature', payload=data['temperature'], qos=1)
+                mqtt_client.publish('sensor/humidity', payload=data['humidity'], qos=1)
+                controlIrrigation([data['soilMoisture'], data['temperature'], data['humidity']])
+            except json.decoder.JSONDecodeError:
+                print('Error: Invalid JSON')
+                continue

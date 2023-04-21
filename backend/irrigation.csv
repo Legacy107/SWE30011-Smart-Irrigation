@@ -1,0 +1,17 @@
+soilMoisture,temperature,humidity,irrigationOn
+0,0,20,True
+0,0,80,True
+0,50,20,True
+0,50,80,True
+250,0,20,True
+250,0,80,True
+250,50,20,True
+250,50,80,True
+500,0,20,True
+500,0,80,True
+500,50,20,False
+500,50,80,False
+700,0,20,False
+700,0,80,False
+700,50,20,False
+700,50,80,False
