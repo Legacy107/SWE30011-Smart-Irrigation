@@ -1,11 +1,16 @@
 #include <PWMServo.h>
 #include <SimpleDHT.h>
 #include <string.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
 
 int pinDHT11 = 3;
 int pinSoilMoisture = A0;
 int pinServo = SERVO_PIN_A;
+
 SimpleDHT11 dht11(pinDHT11);
+
 PWMServo servo;
 int minAngle = 0;
 int maxAngle = 115;
@@ -13,9 +18,16 @@ int angle = 0;
 int startAngle = 0;
 int desiredAngle = 0;
 int command2angle[2] = {0, 115};
-
 int MOVING_TIME = 2000; // moving time is 3 seconds
 unsigned long moveStartTime;
+
+// Set the LCD address to 0x27 for a 16 chars and 2 line display
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+// cached data
+int soilMoisture = 0;
+int temperature = 0;
+int humidity = 0;
 
 volatile int interruptCounter = 0; // counter for the number of interrupts
 volatile bool haveSent = false;
@@ -41,6 +53,11 @@ void setup() {
     servo.attach(pinServo);
     servo.write(0);
     Serial.begin(115200);
+
+    lcd.begin();
+	// Turn on the blacklight and print a message.
+	lcd.backlight();
+	lcd.print("Awaiting data...");
 }
 
 ISR(TIMER2_COMPA_vect)
@@ -68,19 +85,28 @@ bool isIrrigationOn()
 void readSensors()
 {
     haveSent = true;
-    byte temperature = 0;
-    byte humidity = 0;
+    byte newTemperature = 0;
+    byte newHumidity = 0;
     int err = SimpleDHTErrSuccess;
-    err = dht11.read(&temperature, &humidity, NULL);
+
+    err = dht11.read(&newTemperature, &newHumidity, NULL);
     if (err != SimpleDHTErrSuccess) {
         Serial.print("Read DHT11 failed, err=");
         Serial.print(SimpleDHTErrCode(err));
         Serial.print(",");
         Serial.println(SimpleDHTErrDuration(err));
-        return;
     }
 
-    int soilMoisture = analogRead(pinSoilMoisture);
+    temperature = newTemperature ? newTemperature : temperature;
+    humidity = newHumidity ? newHumidity : humidity;
+    soilMoisture = analogRead(pinSoilMoisture);
+
+    display(
+        isIrrigationOn() ? "ON" : "OFF",
+        "S: " + String(soilMoisture) + "mV",
+        "T: " + String(temperature) + "C",
+        "H: " + String(humidity) + "%"
+    );
 
     Serial.println(
         "{\"soilMoisture\":" + String(soilMoisture) +
@@ -88,6 +114,19 @@ void readSensors()
         ",\"humidity\":" + String(humidity) +
         ",\"irrigationStatus\":" + String(isIrrigationOn()) +"}"
     );
+}
+
+void display(String line1, String line2, String line3, String line4)
+{
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print(line1);
+    lcd.setCursor(8, 0);
+    lcd.print(line2);
+    lcd.setCursor(0, 1);
+    lcd.print(line3);
+    lcd.setCursor(8, 1);
+    lcd.print(line4);
 }
 
 void loop() {
