@@ -70,7 +70,7 @@ if __name__ == '__main__':
         line = ser.readline().decode('utf-8').rstrip()
         if not line:
             continue
- 
+
         try:
             data = json.loads(line)
             for sensor in sensors:
