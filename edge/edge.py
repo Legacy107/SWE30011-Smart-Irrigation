@@ -5,9 +5,14 @@ import paho.mqtt.client as paho
 import serial
 from dotenv import find_dotenv, load_dotenv
 from paho import mqtt
+import pickle
 
 
 load_dotenv(find_dotenv())
+
+sensors = ['soilMoisture', 'temperature', 'humidity']
+
+model = pickle.load(open(os.environ.get('MODEL_FILE'), 'rb'))
 
 MQTT_CONFIG = dict(
     host=os.environ.get('MQTT_HOST'),
@@ -48,6 +53,14 @@ def setup_mqtt():
     mqtt_client.loop_start()
 
 
+def controlIrrigation(sensorData):
+    prediction = model.predict([sensorData])
+    if prediction[0]:
+        ser.write(b'1')
+    else:
+        ser.write(b'0')
+
+
 if __name__ == '__main__':
     print('Starting edge device...')
     setup_mqtt()
@@ -55,11 +68,18 @@ if __name__ == '__main__':
 
     while True:
         line = ser.readline().decode('utf-8').rstrip()
+        if not line:
+            continue
+
         try:
             data = json.loads(line)
-            mqtt_client.publish('sensor/temperature', payload=data['temperature'], qos=1)
-            mqtt_client.publish('sensor/humidity', payload=data['humidity'], qos=1)
-            mqtt_client.publish('sensor/soilMoisture', payload=data['soilMoisture'], qos=1)
+            for sensor in sensors:
+                mqtt_client.publish(
+                    f'sensor/{sensor}',
+                    payload=data[sensor],
+                    qos=1
+                )
+            controlIrrigation([data[sensor] for sensor in sensors])
         except json.decoder.JSONDecodeError:
             print('Error: Invalid JSON')
             continue
