@@ -53,8 +53,8 @@ def setup_mqtt():
     mqtt_client.loop_start()
 
 
-def controlIrrigation(data):
-    prediction = model.predict([data])
+def controlIrrigation(sensorData):
+    prediction = model.predict([sensorData])
     if prediction[0]:
         ser.write(b'1')
     else:
@@ -68,13 +68,18 @@ if __name__ == '__main__':
 
     while True:
         line = ser.readline().decode('utf-8').rstrip()
-        if (line):
-            try:
-                data = json.loads(line)
-                mqtt_client.publish('sensor/soilMoisture', payload=data['soilMoisture'], qos=1)
-                mqtt_client.publish('sensor/temperature', payload=data['temperature'], qos=1)
-                mqtt_client.publish('sensor/humidity', payload=data['humidity'], qos=1)
-                controlIrrigation([data['soilMoisture'], data['temperature'], data['humidity']])
-            except json.decoder.JSONDecodeError:
-                print('Error: Invalid JSON')
-                continue
+        if not line:
+            continue
+ 
+        try:
+            data = json.loads(line)
+            for sensor in sensors:
+                mqtt_client.publish(
+                    f'sensor/{sensor}',
+                    payload=data[sensor],
+                    qos=1
+                )
+            controlIrrigation([data[sensor] for sensor in sensors])
+        except json.decoder.JSONDecodeError:
+            print('Error: Invalid JSON')
+            continue

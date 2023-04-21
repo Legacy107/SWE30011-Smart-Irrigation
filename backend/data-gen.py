@@ -11,6 +11,6 @@ for i in range(n):
     humidity = randint(0, 100)
     print(f'{soilmoisture}, {temperature}, {humidity}')
     print('Enter 1 for irrigation on, 0 for irrigation off')
-    irrigationOn = True if input() == '1' else False
+    irrigationOn = input() == '1'
     with open('irrigation.csv', 'a') as f:
         f.write(f'{soilmoisture},{temperature},{humidity},{irrigationOn}\n')
