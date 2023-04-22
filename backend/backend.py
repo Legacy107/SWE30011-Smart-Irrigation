@@ -1,3 +1,5 @@
+from datetime import datetime
+import json
 import os
 
 import mysql.connector
@@ -9,6 +11,7 @@ load_dotenv(find_dotenv())
 
 dbConfig = dict(
     host=os.environ.get('DB_HOST'),
+    port=os.environ.get('DB_PORT'),
     database=os.environ.get('DB_DATABASE'),
     user=os.environ.get('DB_USER'),
     password=os.environ.get('DB_PASSWORD')
@@ -21,6 +24,22 @@ MQTT_CONFIG = dict(
     password=os.environ.get('MQTT_PASSWORD')
 )
 mqtt_client = paho.Client()
+
+
+def execute_query(query):
+    try:
+        conn = mysql.connector.connect(**dbConfig)
+        conn.autocommit = False
+        cursor = conn.cursor()
+        cursor.execute(query)
+        conn.commit()
+    except mysql.connector.Error as error:
+        print(f'Error: {error}')
+        conn.rollback()
+    finally:
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
 
 
 def on_connect(client, userdata, flags, rc, properties=None):
@@ -38,29 +57,32 @@ def on_subscribe(client, userdata, mid, granted_qos, properties=None):
 def on_message(client, userdata, msg):
     print(msg.topic, str(msg.qos), str(msg.payload), sep=' ')
 
-    group, sensor = msg.topic.split('/')
+    group, item = msg.topic.split('/')
+    if group not in ('sensor', 'status'):
+        return
+
+    # parse payload into dict json
+    payload = json.loads(msg.payload)
+    readingTime = (
+        payload.get('readingTime') or
+        datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    )
+
+    insert_query = ''
     if group == 'sensor':
-        reading = int(msg.payload)
-        try:
-            conn = mysql.connector.connect(**dbConfig)
+        reading = int(payload.get('reading'))
+        insert_query = f"""
+            INSERT INTO {item}Log(reading, readingTime)
+            VALUES ({reading}, '{readingTime}')
+        """
+    elif group == 'status':
+        status = 1 if str(payload.get('status')) == 'True' else 0
+        insert_query = f"""
+            INSERT INTO statusLog(status, readingTime)
+            VALUES ({status}, '{readingTime}')
+        """
 
-            conn.autocommit = False
-            cursor = conn.cursor()
-
-            insert_query = f"""
-                INSERT INTO {sensor}Log(reading)
-                VALUES ({reading})
-            """
-
-            cursor.execute(insert_query)
-            conn.commit()
-        except mysql.connector.Error as error:
-            print(f'Error: {error}')
-            conn.rollback()
-        finally:
-            if conn.is_connected():
-                cursor.close()
-                conn.close()
+    execute_query(insert_query)
 
 
 def setup_mqtt():
@@ -74,6 +96,7 @@ def setup_mqtt():
     mqtt_client.on_message = on_message
     mqtt_client.on_publish = on_publish
     mqtt_client.subscribe('sensor/#', qos=1)
+    mqtt_client.subscribe('status/#', qos=1)
     mqtt_client.loop_forever()
 
 
