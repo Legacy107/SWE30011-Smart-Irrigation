@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import os
 
@@ -10,7 +11,8 @@ import pickle
 
 load_dotenv(find_dotenv())
 
-sensors = ['soilMoisture', 'temperature', 'humidity']
+SENSORS = ['soilMoisture', 'temperature', 'humidity']
+ACTIONS = {'irrigationOn': b'1', 'irrigationOff': b'0'}
 
 model = pickle.load(open(os.environ.get('MODEL_FILE'), 'rb'))
 
@@ -37,6 +39,14 @@ def on_subscribe(client, userdata, mid, granted_qos, properties=None):
 
 def on_message(client, userdata, msg):
     print(msg.topic, str(msg.qos), str(msg.payload), sep=' ')
+    group, item = msg.topic.split('/')
+    if group != 'status' or item != 'control':
+        return
+    status = json.loads(msg.payload).get('status')
+    if status:
+        ser.write(ACTIONS['irrigationOn'])
+    else:
+        ser.write(ACTIONS['irrigationOff'])
 
 
 def setup_mqtt():
@@ -49,16 +59,16 @@ def setup_mqtt():
     mqtt_client.on_subscribe = on_subscribe
     mqtt_client.on_message = on_message
     mqtt_client.on_publish = on_publish
-    mqtt_client.subscribe('sensor/#', qos=1)
+    mqtt_client.subscribe('status/control', qos=1)
     mqtt_client.loop_start()
 
 
 def controlIrrigation(sensorData):
     prediction = model.predict([sensorData])
     if prediction[0]:
-        ser.write(b'1')
+        ser.write(ACTIONS['irrigationOn'])
     else:
-        ser.write(b'0')
+        ser.write(ACTIONS['irrigationOff'])
 
 
 if __name__ == '__main__':
@@ -73,13 +83,20 @@ if __name__ == '__main__':
 
         try:
             data = json.loads(line)
-            for sensor in sensors:
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            for sensor in SENSORS:
                 mqtt_client.publish(
                     f'sensor/{sensor}',
-                    payload=data[sensor],
+                    payload=f'"reading": {data[sensor]}, "readingTime": "{timestamp}"',
                     qos=1
                 )
-            controlIrrigation([data[sensor] for sensor in sensors])
+            mqtt_client.publish(
+                'status/reading',
+                payload=f'"status": "{data["irrigationStatus"]}", "readingTime": "{timestamp}"',
+                qos=1
+            )
+
+            controlIrrigation([data[sensor] for sensor in SENSORS])
         except json.decoder.JSONDecodeError:
             print('Error: Invalid JSON')
             continue

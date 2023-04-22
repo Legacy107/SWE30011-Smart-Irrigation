@@ -1,16 +1,19 @@
 import dynamic from 'next/dynamic'
 const Chart = dynamic(() => import('react-apexcharts'), { ssr: false })
-import { SensorData } from '@/@types/sensorData'
 import { ApexOptions } from 'apexcharts'
+import { SensorData } from '@/@types/sensorData'
+import { StatusData } from '@/@types/statusData'
 
 type LineChartProps = {
   data: SensorData
+  statusData: StatusData
 }
 
 const colorMap = {
-  soilMoisture: '#ff9800',
-  temperature: '#f50057',
-  humidity: '#3f51b5',
+  soilMoisture: '#F9CE1D',
+  temperature: '#FF4560',
+  humidity: '#03A9F4',
+  status: '#4CAF50',
 }
 
 const sensorBounds = {
@@ -26,12 +29,17 @@ const sensorBounds = {
     min: 0,
     max: 150,
   },
+  status: {
+    min: 0,
+    max: 2,
+  },
 }
 
-export default function LineChart({ data }: LineChartProps) {
+export default function LineChart({ data, statusData }: LineChartProps) {
   const options: ApexOptions = {
     chart: {
-      id: 'realtime',
+      id: 'data-realtime',
+      group: 'realtime',
       animations: {
         enabled: true,
         easing: 'linear',
@@ -46,12 +54,24 @@ export default function LineChart({ data }: LineChartProps) {
         enabled: true,
       },
     },
-    colors: [colorMap.soilMoisture, colorMap.temperature, colorMap.humidity],
+    colors: Object.entries(colorMap).map(([key, color]) => color),
     dataLabels: {
       enabled: false,
     },
     stroke: {
-      curve: 'smooth',
+      curve: ['smooth', 'smooth', 'smooth', 'stepline'],
+      width: [3, 3, 3, 1],
+    },
+    fill: {
+      type: ['solid', 'solid', 'solid', 'gradient'],
+      gradient: {
+        inverseColors: false,
+        shade: 'light',
+        type: 'vertical',
+        opacityFrom: 0.45,
+        opacityTo: 0.05,
+        stops: [5, 100, 100, 100],
+      },
     },
     markers: {
       size: 0,
@@ -70,6 +90,7 @@ export default function LineChart({ data }: LineChartProps) {
           color: colorMap.soilMoisture
         },
         labels: {
+          minWidth: 40,
           style: {
             colors: colorMap.soilMoisture
           }
@@ -92,6 +113,7 @@ export default function LineChart({ data }: LineChartProps) {
           color: colorMap.temperature
         },
         labels: {
+          minWidth: 40,
           style: {
             colors: colorMap.temperature
           }
@@ -114,6 +136,7 @@ export default function LineChart({ data }: LineChartProps) {
           color: colorMap.humidity
         },
         labels: {
+          minWidth: 40,
           style: {
             colors: colorMap.humidity
           }
@@ -122,6 +145,30 @@ export default function LineChart({ data }: LineChartProps) {
           text: 'Humidity',
           style: {
             color: colorMap.humidity
+          }
+        }
+      },
+      {
+        ...sensorBounds.status,
+        tickAmount: 2,
+        axisTicks: {
+          show: true
+        },
+        axisBorder: {
+          show: true,
+          color: colorMap.status
+        },
+        labels: {
+          minWidth: 40,
+          style: {
+            colors: colorMap.status
+          },
+          formatter: (value) => value === 0 ? 'Off' : value === 1 ? 'On' : ''
+        },
+        title: {
+          text: 'Irrigation Status',
+          style: {
+            color: colorMap.status
           }
         }
       }
@@ -136,15 +183,35 @@ export default function LineChart({ data }: LineChartProps) {
   const series = [
     {
       name: 'Soil Moisture',
-      data: data.soilMoisture.map((reading) => [new Date(reading.readingTime).getTime(), reading.reading]),
+      type: 'line',
+      data: data.soilMoisture.map((reading) => [
+        new Date(reading.readingTime).getTime(),
+        reading.reading
+      ]),
     },
     {
       name: 'Temperature',
-      data: data.temperature.map((reading) => [new Date(reading.readingTime).getTime(), reading.reading]),
+      type: 'line',
+      data: data.temperature.map((reading) => [
+        new Date(reading.readingTime).getTime(),
+        reading.reading
+      ]),
     },
     {
       name: 'Humidity',
-      data: data.humidity.map((reading) => [new Date(reading.readingTime).getTime(), reading.reading]),
+      type: 'line',
+      data: data.humidity.map((reading) => [
+        new Date(reading.readingTime).getTime(),
+        reading.reading
+      ]),
+    },
+    {
+      name: 'Irrigation Status',
+      type: 'area',
+      data: statusData.map((reading) => [
+        new Date(reading.readingTime).getTime(),
+        reading.status
+      ]),
     },
   ]
 
