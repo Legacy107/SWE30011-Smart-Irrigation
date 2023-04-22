@@ -39,7 +39,7 @@ def execute_query(query):
     finally:
         if conn.is_connected():
             cursor.close()
-            conn.close() 
+            conn.close()
 
 
 def on_connect(client, userdata, flags, rc, properties=None):
@@ -58,9 +58,9 @@ def on_message(client, userdata, msg):
     print(msg.topic, str(msg.qos), str(msg.payload), sep=' ')
 
     group, item = msg.topic.split('/')
-    if group != 'sensor' and group != 'status':
+    if group not in ('sensor', 'status'):
         return
-    
+
     # parse payload into dict json
     payload = json.loads(msg.payload)
     readingTime = (

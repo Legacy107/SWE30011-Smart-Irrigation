@@ -87,12 +87,17 @@ if __name__ == '__main__':
             for sensor in SENSORS:
                 mqtt_client.publish(
                     f'sensor/{sensor}',
-                    payload=f'"reading": {data[sensor]}, "readingTime": "{timestamp}"',
+                    payload='{' +
+                        f'{"reading": {data[sensor]}, "readingTime": "{timestamp}"}' +
+                        '}',
                     qos=1
                 )
             mqtt_client.publish(
                 'status/reading',
-                payload=f'"status": "{data["irrigationStatus"]}", "readingTime": "{timestamp}"',
+                payload='{' +
+                    f'"status": "{data["irrigationStatus"]}", ' +
+                    f'"readingTime": "{timestamp}"' +
+                    '}',
                 qos=1
             )
 
