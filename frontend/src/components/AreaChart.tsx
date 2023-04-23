@@ -2,18 +2,17 @@ import dynamic from 'next/dynamic'
 const Chart = dynamic(() => import('react-apexcharts'), { ssr: false })
 import { StatusData } from '@/@types/statusData'
 import { ApexOptions } from 'apexcharts'
-
-const color = '#3F51B5';
+import { colorMap, yAxisConfig, getYAxisConfig } from '@/components/ComboChart'
 
 type AreaChartProps = {
   data: StatusData
+  isLive: boolean
 }
 
-export default function AreaChart({ data }: AreaChartProps) {
+export default function AreaChart({ data, isLive }: AreaChartProps) {
   const options: ApexOptions = {
     chart: {
       id: 'status-realtime',
-      group: '',
       animations: {
         enabled: true,
         easing: 'linear',
@@ -22,21 +21,14 @@ export default function AreaChart({ data }: AreaChartProps) {
         },
       },
       toolbar: {
-        show: true,
+        show: !isLive,
+        autoSelected: isLive ? 'selection' : 'zoom',
       },
       zoom: {
         enabled: true,
       },
-      offsetX: -10,
     },
-    colors: [color],
-    title: {
-      text: 'Irrigation Status',
-      align: 'center',
-      style: {
-        color: color
-      }
-    },
+    colors: [colorMap.status],
     dataLabels: {
       enabled: false,
     },
@@ -49,23 +41,15 @@ export default function AreaChart({ data }: AreaChartProps) {
     },
     xaxis: {
       type: 'datetime',
+      range: isLive ? 21600000 : undefined, // 6 hours
+      labels: {
+        datetimeUTC: false,
+      },
     },
     yaxis: {
-      min: 0,
-      max: 2,
-      tickAmount: 2,
-      axisTicks: {
-        show: true
-      },
-      axisBorder: {
-        show: true,
-        color: color
-      },
+      ...getYAxisConfig('status'),
       labels: {
-        minWidth: 40,
-        style: {
-          colors: color
-        },
+        ...getYAxisConfig('status').labels,
         formatter: (value) => value === 0 ? 'Off' : value === 1 ? 'On' : ''
       },
     },
@@ -73,7 +57,7 @@ export default function AreaChart({ data }: AreaChartProps) {
 
   const series = [
     {
-      name: 'Irrigation Status',
+      name: yAxisConfig.status.seriesName,
       data: data.map((data) => [
         new Date(data.readingTime).getTime(),
         data.status
@@ -82,7 +66,6 @@ export default function AreaChart({ data }: AreaChartProps) {
   ]
 
   return <Chart
-    style={{ paddingInline: '6.5rem' }}
     options={options}
     series={series}
     type="area"

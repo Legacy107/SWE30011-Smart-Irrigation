@@ -1,7 +1,7 @@
 export type SensorData = {
+  soilMoisture: Array<ReadingData>
   temperature: Array<ReadingData>
   humidity: Array<ReadingData>
-  soilMoisture: Array<ReadingData>
 }
 
 export type ReadingData = {
@@ -10,7 +10,7 @@ export type ReadingData = {
 }
 
 export const SensorList: Array<keyof SensorData> = [
+  'soilMoisture',
   'temperature',
   'humidity',
-  'soilMoisture',
 ]
