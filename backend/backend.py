@@ -96,7 +96,7 @@ def setup_mqtt():
     mqtt_client.on_message = on_message
     mqtt_client.on_publish = on_publish
     mqtt_client.subscribe('sensor/#', qos=1)
-    mqtt_client.subscribe('status/#', qos=1)
+    mqtt_client.subscribe('status/reading', qos=1)
     mqtt_client.loop_forever()
 
 
