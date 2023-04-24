@@ -76,7 +76,7 @@ def controlIrrigation(ser, sensorData):
     logicConfig = getLogicConfig()
     if logicConfig is None:
         return
-    
+
     needIrrigation = False
     if logicConfig['useModel']:
         prediction = model.predict([sensorData])
@@ -106,6 +106,7 @@ def getLogicConfig():
         }
     except mysql.connector.Error as error:
         print(f'Error: {error}')
+        return None
     finally:
         if conn is not None and conn.is_connected():
             cursor.close()
