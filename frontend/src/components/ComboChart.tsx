@@ -78,12 +78,14 @@ type ComboChartProps = {
   data: SensorData
   statusData: StatusData
   isLive: boolean
+  xRange: number
 }
 
 export default function ComboChart({
   data,
   statusData,
-  isLive
+  isLive,
+  xRange,
 }: ComboChartProps) {
   const options: ApexOptions = {
     chart: {
@@ -128,7 +130,7 @@ export default function ComboChart({
     },
     xaxis: {
       type: 'datetime',
-      range: isLive ? 21600000 : undefined,
+      range: isLive ? xRange : undefined,
       labels: {
         datetimeUTC: false,
       },

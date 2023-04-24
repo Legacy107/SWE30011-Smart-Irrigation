@@ -8,12 +8,14 @@ type LineChartProps = {
   dataKey: keyof typeof colorMap
   data: Array<ReadingData>
   isLive: boolean
+  xRange: number
 }
 
 export default function LineChart({
   dataKey,
   data,
   isLive,
+  xRange,
 }: LineChartProps) {
   const options: ApexOptions = {
     chart: {
@@ -48,7 +50,7 @@ export default function LineChart({
     },
     xaxis: {
       type: 'datetime',
-      range: isLive ? 21600000 : undefined,
+      range: isLive ? xRange : undefined,
       labels: {
         datetimeUTC: false,
       },
