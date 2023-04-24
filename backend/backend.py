@@ -27,6 +27,7 @@ mqtt_client = paho.Client()
 
 
 def execute_query(query):
+    conn = None
     try:
         conn = mysql.connector.connect(**dbConfig)
         conn.autocommit = False
@@ -35,9 +36,10 @@ def execute_query(query):
         conn.commit()
     except mysql.connector.Error as error:
         print(f'Error: {error}')
-        conn.rollback()
+        if conn is not None:
+            conn.rollback()
     finally:
-        if conn.is_connected():
+        if conn is not None and conn.is_connected():
             cursor.close()
             conn.close()
 
@@ -76,7 +78,7 @@ def on_message(client, userdata, msg):
             VALUES ({reading}, '{readingTime}')
         """
     elif group == 'status':
-        status = 1 if str(payload.get('status')) == 'True' else 0
+        status = int(payload.get('status'))
         insert_query = f"""
             INSERT INTO statusLog(status, readingTime)
             VALUES ({status}, '{readingTime}')

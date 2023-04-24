@@ -7,9 +7,10 @@ import { colorMap, yAxisConfig, getYAxisConfig } from '@/components/ComboChart'
 type AreaChartProps = {
   data: StatusData
   isLive: boolean
+  xRange: number
 }
 
-export default function AreaChart({ data, isLive }: AreaChartProps) {
+export default function AreaChart({ data, isLive, xRange }: AreaChartProps) {
   const options: ApexOptions = {
     chart: {
       id: 'status-realtime',
@@ -41,7 +42,7 @@ export default function AreaChart({ data, isLive }: AreaChartProps) {
     },
     xaxis: {
       type: 'datetime',
-      range: isLive ? 21600000 : undefined, // 6 hours
+      range: isLive ? xRange : undefined,
       labels: {
         datetimeUTC: false,
       },

@@ -4,7 +4,15 @@ import { useSubscription } from 'mqtt-react-hooks'
 import axios from 'axios'
 import dayjs, { Dayjs } from 'dayjs'
 // mui
-import { Box, Stack, Switch, Typography, styled } from '@mui/material'
+import {
+  Box,
+  Stack,
+  Switch,
+  Typography,
+  Select,
+  MenuItem,
+  styled
+} from '@mui/material'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
@@ -25,6 +33,14 @@ const RootStyle = styled(Box)(() => ({
   gap: '1rem',
 }))
 
+const timeRanges = {
+  '5 minutes': 3600000 / 12,
+  '30 mintues': 3600000 / 2,
+  '1 hour': 3600000,
+  '3 hours': 3 * 3600000,
+  '6 hours': 6 * 3600000,
+}
+
 export default function Home() {
   const [status, setStatus] = useState<number>(0)
   const [data, setData] = useState<SensorData | null>(null)
@@ -35,13 +51,14 @@ export default function Home() {
   const { message: statusMessage } = useSubscription([ 'status/reading' ])
   const { message: sensorMessage } = useSubscription([ 'sensor/#' ])
   const [isLive, setIsLive] = useState<boolean>(true)
+  const [xRange, setXRange] = useState<keyof typeof timeRanges>('30 mintues')
 
   useEffect(() => {
     if (!statusMessage || !isLive)
       return
     const data = JSON.parse(statusMessage?.message as string)
     setStatusData((statusData) => [...statusData as StatusData, {
-      status: data.status === 'True' ? 1 : 0,
+      status: parseInt(data.status),
       readingTime: data.readingTime,
     }])
   }, [statusMessage])
@@ -54,7 +71,7 @@ export default function Home() {
     const newSensorData = { ...data } as SensorData
     newSensorData[sensor as keyof SensorData].push(messageData)
     setData(newSensorData)
-  })
+  }, [sensorMessage])
 
   useEffect(() => {
     fetchLatestStatus()
@@ -160,23 +177,45 @@ export default function Home() {
             onChange={handleLiveToggle}
             inputProps={{ 'aria-label': 'live data toggle switch' }}
             />
-          <DateTimePicker
-            sx={{ marginLeft: '1rem' }}
-            label="From"
-            value={minTime}
-            onChange={(newValue) => setMinTime(newValue)}
-            disabled={isLive}
-          />
-          <DateTimePicker
-            label="To"
-            value={maxTime}
-            onChange={(newValue) => setMaxTime(newValue)}
-            disabled={isLive}
-          />
+          { isLive ?
+            <Select
+              id="time-range-selector"
+              value={xRange}
+              onChange={(event) => 
+                setXRange(event.target.value as keyof typeof timeRanges)
+              }
+            >
+              {Object.keys(timeRanges).map((key) => (
+                <MenuItem key={key} value={key}>
+                  {key}
+                </MenuItem>
+              ))}
+            </Select> :
+            <>
+              <DateTimePicker
+                sx={{ marginLeft: '1rem' }}
+                label="From"
+                value={minTime}
+                onChange={(newValue) => setMinTime(newValue)}
+                disabled={isLive}
+              />
+              <DateTimePicker
+                label="To"
+                value={maxTime}
+                onChange={(newValue) => setMaxTime(newValue)}
+                disabled={isLive}
+              />
+            </>
+          }
         </Stack>
       </LocalizationProvider>
       {(typeof window !== 'undefined') && data && statusData &&
-        <ComboChart data={data} statusData={statusData} isLive={isLive} />
+        <ComboChart
+          data={data}
+          statusData={statusData}
+          isLive={isLive}
+          xRange={timeRanges[xRange]}
+        />
       }
       <Box sx={{
         width: '100%',
@@ -184,7 +223,7 @@ export default function Home() {
         gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr));'
       }}>
         {(typeof window !== 'undefined') && statusData &&
-          <AreaChart data={statusData} isLive={isLive} />
+          <AreaChart data={statusData} isLive={isLive} xRange={timeRanges[xRange]} />
         }
         {(typeof window !== 'undefined') && data &&
           Object.entries(data).map(([key, data]) => (
@@ -193,6 +232,7 @@ export default function Home() {
               dataKey={key as keyof SensorData}
               data={data}
               isLive={isLive}
+              xRange={timeRanges[xRange]}
             />
           ))
         }
