@@ -2,6 +2,7 @@ from datetime import datetime
 import json
 import os
 
+import mysql.connector
 import paho.mqtt.client as paho
 import serial
 from dotenv import find_dotenv, load_dotenv
@@ -10,6 +11,14 @@ import pickle
 
 
 load_dotenv(find_dotenv())
+
+dbConfig = dict(
+    host=os.environ.get('DB_HOST'),
+    port=os.environ.get('DB_PORT'),
+    database=os.environ.get('DB_DATABASE'),
+    user=os.environ.get('DB_USER'),
+    password=os.environ.get('DB_PASSWORD')
+)
 
 SENSORS = ['soilMoisture', 'temperature', 'humidity']
 ACTIONS = {'irrigationOn': b'1', 'irrigationOff': b'0'}
@@ -63,12 +72,44 @@ def setup_mqtt():
     mqtt_client.loop_start()
 
 
-def controlIrrigation(sensorData):
-    prediction = model.predict([sensorData])
-    if prediction[0]:
+def controlIrrigation(ser, sensorData):
+    logicConfig = getLogicConfig()
+    if logicConfig is None:
+        return
+    
+    needIrrigation = False
+    if logicConfig['useModel']:
+        prediction = model.predict([sensorData])
+        needIrrigation = prediction[0] == 1
+    else:
+        soilMoisture, temperature, humidity = sensorData
+        rules = logicConfig['rules']
+        needIrrigation = eval(rules)
+
+    if needIrrigation:
         ser.write(ACTIONS['irrigationOn'])
     else:
         ser.write(ACTIONS['irrigationOff'])
+
+
+def getLogicConfig():
+    conn = None
+    try:
+        conn = mysql.connector.connect(**dbConfig)
+        cursor = conn.cursor()
+        query = 'SELECT useModel, rules FROM logicConfig LIMIT 1'
+        cursor.execute(query)
+        result = cursor.fetchone()
+        return {
+            'useModel': result[0],
+            'rules': result[1]
+        }
+    except mysql.connector.Error as error:
+        print(f'Error: {error}')
+    finally:
+        if conn is not None and conn.is_connected():
+            cursor.close()
+            conn.close()
 
 
 if __name__ == '__main__':
@@ -88,7 +129,7 @@ if __name__ == '__main__':
                 mqtt_client.publish(
                     f'sensor/{sensor}',
                     payload='{' +
-                        f'{"reading": {data[sensor]}, "readingTime": "{timestamp}"}' +
+                        f'"reading": {data[sensor]}, "readingTime": "{timestamp}"' +
                         '}',
                     qos=1
                 )
@@ -101,7 +142,7 @@ if __name__ == '__main__':
                 qos=1
             )
 
-            controlIrrigation([data[sensor] for sensor in SENSORS])
+            controlIrrigation(ser, [data[sensor] for sensor in SENSORS])
         except json.decoder.JSONDecodeError:
             print('Error: Invalid JSON')
             continue
