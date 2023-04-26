@@ -53,7 +53,7 @@ def on_message(client, userdata, msg):
             ser.write(ACTIONS['irrigationOn'])
         else:
             ser.write(ACTIONS['irrigationOff'])
-    
+
     if group == 'logic' and item == 'config':
         global logicConfig
         logicConfig = json.loads(msg.payload)
