@@ -12,13 +12,14 @@ import pickle
 
 load_dotenv(find_dotenv())
 
-dbConfig = dict(
+DB_CONFIG = dict(
     host=os.environ.get('DB_HOST'),
     port=os.environ.get('DB_PORT'),
     database=os.environ.get('DB_DATABASE'),
     user=os.environ.get('DB_USER'),
     password=os.environ.get('DB_PASSWORD')
 )
+logicConfig = None
 
 SENSORS = ['soilMoisture', 'temperature', 'humidity']
 ACTIONS = {'irrigationOn': b'1', 'irrigationOff': b'0'}
@@ -35,11 +36,7 @@ mqtt_client = paho.Client()
 
 
 def on_connect(client, userdata, flags, rc, properties=None):
-    print(f'CONNACK received with code {rc}.')
-
-
-def on_publish(client, userdata, mid, properties=None):
-    print(f'mid: {str(mid)}')
+    print(f'Connected with result code {rc}.')
 
 
 def on_subscribe(client, userdata, mid, granted_qos, properties=None):
@@ -49,13 +46,17 @@ def on_subscribe(client, userdata, mid, granted_qos, properties=None):
 def on_message(client, userdata, msg):
     print(msg.topic, str(msg.qos), str(msg.payload), sep=' ')
     group, item = msg.topic.split('/')
-    if group != 'status' or item != 'control':
-        return
-    status = json.loads(msg.payload).get('status')
-    if status:
-        ser.write(ACTIONS['irrigationOn'])
-    else:
-        ser.write(ACTIONS['irrigationOff'])
+
+    if group == 'status' and item == 'control':
+        status = json.loads(msg.payload).get('status')
+        if status:
+            ser.write(ACTIONS['irrigationOn'])
+        else:
+            ser.write(ACTIONS['irrigationOff'])
+    
+    if group == 'logic' and item == 'config':
+        global logicConfig
+        logicConfig = json.loads(msg.payload)
 
 
 def setup_mqtt():
@@ -67,8 +68,8 @@ def setup_mqtt():
     mqtt_client.connect(MQTT_CONFIG['host'], MQTT_CONFIG['port'])
     mqtt_client.on_subscribe = on_subscribe
     mqtt_client.on_message = on_message
-    mqtt_client.on_publish = on_publish
     mqtt_client.subscribe('status/control', qos=1)
+    mqtt_client.subscribe('logic/config', qos=1)
     mqtt_client.loop_start()
 
 
@@ -93,17 +94,24 @@ def controlIrrigation(ser, sensorData):
 
 
 def getLogicConfig():
+    global logicConfig
+    if logicConfig is not None:
+        return logicConfig
+
     conn = None
     try:
-        conn = mysql.connector.connect(**dbConfig)
+        conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor()
         query = 'SELECT useModel, rules FROM logicConfig LIMIT 1'
         cursor.execute(query)
         result = cursor.fetchone()
-        return {
+        if result is None:
+            return None
+        logicConfig = {
             'useModel': result[0],
             'rules': result[1]
         }
+        return logicConfig
     except mysql.connector.Error as error:
         print(f'Error: {error}')
         return None
@@ -115,6 +123,7 @@ def getLogicConfig():
 
 if __name__ == '__main__':
     print('Starting edge device...')
+    getLogicConfig()
     setup_mqtt()
     ser = serial.Serial('/dev/tty.usbmodem1101', 115200)
 

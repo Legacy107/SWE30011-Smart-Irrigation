@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useMqttState } from 'mqtt-react-hooks'
 import axios from 'axios'
 import { Parser } from 'expr-eval';
 // mui
@@ -35,6 +36,7 @@ export default function Settings() {
   const [error, setError] = useState<string>('')
   const [saving, setSaving] = useState<boolean>(false)
   const [soilMoistureThreshold, setSoilMoistureThreshold] = useState<number>(0)
+  const { client: mqttClient, connectionStatus: mqttStatus } = useMqttState()
 
   useEffect(() => {
     fetchConfigData()
@@ -68,11 +70,19 @@ export default function Settings() {
           throw new Error('Invalid rules')
       }
       
-      await axios.post('/api/logicConfig', {
-        useModel: useModel ? 1 : 0,
-        rules: simple ? `soilMoisture < ${soilMoistureThreshold}` : rules,
-        simple: simple ? 1 : 0,
-      })
+      if (!mqttClient || !mqttStatus) {
+        throw new Error('Failed to connect to MQTT broker')
+      }
+
+      mqttClient.publish(
+        'logic/config',
+        JSON.stringify({
+          useModel: useModel ? 1 : 0,
+          rules: useModel ? '' : simple ? `soilMoisture < ${soilMoistureThreshold}` : rules,
+          simple: simple ? 1 : 0,
+        }),
+        { qos: 1 }
+      )
     } catch (error) {
       console.log(error)
       console.log((error as Error).message)

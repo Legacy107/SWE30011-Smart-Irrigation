@@ -129,7 +129,7 @@ export default function Home() {
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     try {
-      if (!mqttClient) {
+      if (!mqttClient || !mqttStatus) {
         console.log('Cannot publish')
         return
       }

@@ -20,23 +20,6 @@ export default async function handler(
       }
       break
 
-    case 'POST':
-      try {
-        const { useModel, rules, simple } = req.body
-        let query = `
-          UPDATE logicConfig
-          SET useModel = ${useModel}, rules = '${rules}', simple = ${simple}
-        `
-        console.log(query)
-        const [rows] = await connection.execute(query)
-        console.log(rows)
-        res.status(200).json({ message: 'Success' })
-      } catch (err) {
-        console.log(err)
-        res.status(500).json({ message: 'Something went wrong' })
-      }
-      break
-
     default:
       res.setHeader('Allow', ['POST'])
       res.status(405).end(`Method ${method} Not Allowed`)
