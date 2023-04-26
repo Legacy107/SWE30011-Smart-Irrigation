@@ -9,7 +9,7 @@ from paho import mqtt
 
 load_dotenv(find_dotenv())
 
-dbConfig = dict(
+DB_CONFIG = dict(
     host=os.environ.get('DB_HOST'),
     port=os.environ.get('DB_PORT'),
     database=os.environ.get('DB_DATABASE'),
@@ -29,7 +29,7 @@ mqtt_client = paho.Client()
 def execute_query(query):
     conn = None
     try:
-        conn = mysql.connector.connect(**dbConfig)
+        conn = mysql.connector.connect(**DB_CONFIG)
         conn.autocommit = False
         cursor = conn.cursor()
         cursor.execute(query)
@@ -45,11 +45,7 @@ def execute_query(query):
 
 
 def on_connect(client, userdata, flags, rc, properties=None):
-    print(f'CONNACK received with code {rc}.')
-
-
-def on_publish(client, userdata, mid, properties=None):
-    print(f'mid: {str(mid)}')
+    print(f'Connected with result code {rc}.')
 
 
 def on_subscribe(client, userdata, mid, granted_qos, properties=None):
@@ -60,31 +56,38 @@ def on_message(client, userdata, msg):
     print(msg.topic, str(msg.qos), str(msg.payload), sep=' ')
 
     group, item = msg.topic.split('/')
-    if group not in ('sensor', 'status'):
+    if group not in ('sensor', 'status', 'logic'):
         return
 
-    # parse payload into dict json
     payload = json.loads(msg.payload)
     readingTime = (
         payload.get('readingTime') or
         datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     )
 
-    insert_query = ''
+    sql_query = ''
     if group == 'sensor':
         reading = int(payload.get('reading'))
-        insert_query = f"""
+        sql_query = f"""
             INSERT INTO {item}Log(reading, readingTime)
             VALUES ({reading}, '{readingTime}')
         """
     elif group == 'status':
         status = int(payload.get('status'))
-        insert_query = f"""
+        sql_query = f"""
             INSERT INTO statusLog(status, readingTime)
             VALUES ({status}, '{readingTime}')
         """
+    elif group == 'logic':
+        useModel = payload.get('useModel')
+        simple = payload.get('simple')
+        rules = payload.get('rules')
+        sql_query = f"""
+            UPDATE logicConfig
+            SET useModel = {useModel}, rules = '{rules}', simple = {simple}
+        """
 
-    execute_query(insert_query)
+    execute_query(sql_query)
 
 
 def setup_mqtt():
@@ -96,9 +99,9 @@ def setup_mqtt():
     mqtt_client.connect(MQTT_CONFIG['host'], MQTT_CONFIG['port'])
     mqtt_client.on_subscribe = on_subscribe
     mqtt_client.on_message = on_message
-    mqtt_client.on_publish = on_publish
     mqtt_client.subscribe('sensor/#', qos=1)
     mqtt_client.subscribe('status/reading', qos=1)
+    mqtt_client.subscribe('logic/config', qos=1)
     mqtt_client.loop_forever()
 
 
