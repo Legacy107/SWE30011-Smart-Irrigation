@@ -1,5 +1,7 @@
 #include <PWMServo.h>
-#include <SimpleDHT.h>
+#include <Adafruit_Sensor.h>
+#include <DHT.h>
+#include <DHT_U.h>
 #include <string.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
@@ -9,7 +11,7 @@ int pinDHT11 = 3;
 int pinSoilMoisture = A0;
 int pinServo = SERVO_PIN_A;
 
-SimpleDHT11 dht11(pinDHT11);
+DHT_Unified dht(pinDHT11, DHT11);
 
 PWMServo servo;
 int minAngle = 0;
@@ -18,7 +20,7 @@ int angle = 0;
 int startAngle = 0;
 int desiredAngle = 0;
 int command2angle[2] = {0, 115};
-int MOVING_TIME = 2000; // moving time is 3 seconds
+int MOVING_TIME = 2000; // moving time is 2 seconds
 unsigned long moveStartTime;
 
 // Set the LCD address to 0x27 for a 16 chars and 2 line display
@@ -49,27 +51,25 @@ void setup() {
     TIMSK2 |= (1 << OCIE2A);
     sei(); // allow interrupts
 
-    pinMode(pinDHT11, INPUT);
+    dht.begin();
+
     servo.attach(pinServo);
     servo.write(0);
     Serial.begin(115200);
 
     lcd.begin();
-	// Turn on the blacklight and print a message.
 	lcd.backlight();
 	lcd.print("Awaiting data...");
 }
 
-ISR(TIMER2_COMPA_vect)
-{
+ISR(TIMER2_COMPA_vect) {
     interruptCounter++;
-    interruptCounter %= 2500;
+    interruptCounter %= 2000;
     if (interruptCounter)
         haveSent = false;
 }
 
-void controlIrrigation()
-{
+void controlIrrigation() {
     unsigned long progress = millis() - moveStartTime;
     if (progress <= MOVING_TIME) {
         angle = map(progress, 0, MOVING_TIME, startAngle, desiredAngle);
@@ -77,28 +77,29 @@ void controlIrrigation()
     }
 }
 
-bool isIrrigationOn()
-{
+bool isIrrigationOn() {
     return desiredAngle == maxAngle;
 }
 
-void readSensors()
-{
+void readSensors() {
     haveSent = true;
-    byte newTemperature = 0;
-    byte newHumidity = 0;
-    int err = SimpleDHTErrSuccess;
-
-    err = dht11.read(&newTemperature, &newHumidity, NULL);
-    if (err != SimpleDHTErrSuccess) {
-        Serial.print("Read DHT11 failed, err=");
-        Serial.print(SimpleDHTErrCode(err));
-        Serial.print(",");
-        Serial.println(SimpleDHTErrDuration(err));
+   
+    sensors_event_t event;
+    dht.temperature().getEvent(&event);
+    if (isnan(event.temperature)) {
+        Serial.println(F("Error reading temperature!"));
+    }
+    else {
+        temperature = event.temperature;
+    }
+    dht.humidity().getEvent(&event);
+    if (isnan(event.relative_humidity)) {
+        Serial.println(F("Error reading humidity!"));
+    }
+    else {
+        humidity = event.relative_humidity;
     }
 
-    temperature = newTemperature ? newTemperature : temperature;
-    humidity = newHumidity ? newHumidity : humidity;
     soilMoisture = analogRead(pinSoilMoisture);
 
     display(
@@ -116,8 +117,7 @@ void readSensors()
     );
 }
 
-void display(String line1, String line2, String line3, String line4)
-{
+void display(String line1, String line2, String line3, String line4) {
     lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print(line1);
