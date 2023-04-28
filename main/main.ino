@@ -104,7 +104,7 @@ void readSensors() {
 
     display(
         isIrrigationOn() ? "ON" : "OFF",
-        "S: " + String(soilMoisture) + "mV",
+        "S: " + String(soilMoisture),
         "T: " + String(temperature) + "C",
         "H: " + String(humidity) + "%"
     );

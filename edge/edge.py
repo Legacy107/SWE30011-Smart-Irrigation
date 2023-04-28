@@ -88,7 +88,7 @@ def controlIrrigation(ser, sensorData):
     needIrrigation = False
     if logicConfig['mode'] == 'Model':
         prediction = model.predict([sensorData])
-        needIrrigation = prediction[0] == 1
+        needIrrigation = prediction[0]
     else:
         soilMoisture, temperature, humidity = sensorData
         rules = logicConfig['rules']
