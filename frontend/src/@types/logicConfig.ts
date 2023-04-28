@@ -1,5 +1,5 @@
 type LogicConfig = {
-  useModel: number
+  mode: 'Model' | 'Rules' | 'Manual'
   rules: string
   simple: number
 }

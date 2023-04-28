@@ -54,13 +54,18 @@ export default function Home() {
   const [xRange, setXRange] = useState<keyof typeof timeRanges>('30 mintues')
 
   useEffect(() => {
-    if (!statusMessage || !isLive)
+    if (!statusMessage)
       return
+
     const data = JSON.parse(statusMessage?.message as string)
-    setStatusData((statusData) => [...statusData as StatusData, {
+    setStatus(parseInt(data.status))
+
+    if (!isLive)
+      return
+    setStatusData((statusData) => [{
       status: parseInt(data.status),
       readingTime: data.readingTime,
-    }])
+    }, ...statusData as StatusData])
   }, [statusMessage])
 
   useEffect(() => {
@@ -69,7 +74,7 @@ export default function Home() {
     const sensor = sensorMessage?.topic?.split('/')[1]
     const messageData = JSON.parse(sensorMessage?.message as string)
     const newSensorData = { ...data } as SensorData
-    newSensorData[sensor as keyof SensorData].push(messageData)
+    newSensorData[sensor as keyof SensorData].unshift(messageData)
     setData(newSensorData)
   }, [sensorMessage])
 
@@ -135,7 +140,7 @@ export default function Home() {
       }
       mqttClient.publish(
         'status/control',
-        JSON.stringify({ status: event.target.checked ? 'True' : 'False' }),
+        JSON.stringify({ status: event.target.checked ? 1 : 0 }),
         { qos: 1 }
       )
       setStatus(event.target.checked ? 1 : 0)

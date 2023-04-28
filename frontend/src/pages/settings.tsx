@@ -6,7 +6,6 @@ import { Parser } from 'expr-eval';
 import {
   Typography,
   Box,
-  Switch,
   styled,
   Stack,
   TextField,
@@ -15,6 +14,8 @@ import {
   Checkbox,
   Snackbar,
   Alert,
+  Select,
+  MenuItem,
 } from '@mui/material'
 import LoadingButton from '@mui/lab/LoadingButton';
 // types
@@ -29,8 +30,10 @@ const RootStyle = styled(Box)(() => ({
   gap: '1rem',
 }))
 
+const MODES = ['Model', 'Rules', 'Manual']
+
 export default function Settings() {
-  const [useModel, setUseModel] = useState<boolean>(false)
+  const [mode, setMode] = useState<LogicConfig["mode"]>('Model')
   const [rules, setRules] = useState<string>('')
   const [simple, setSimple] = useState<boolean>(true)
   const [error, setError] = useState<string>('')
@@ -44,15 +47,11 @@ export default function Settings() {
 
   const fetchConfigData = async () => {
     const { data } = await axios.get<LogicConfig>('/api/logicConfig')
-    setUseModel(data.useModel === 1)
+    setMode(data.mode)
     setRules(data.rules)
     setSimple(data.simple === 1)
     if (data.simple === 1)
       setSoilMoistureThreshold(parseInt(data.rules.split('<')[1]))
-  }
-
-  const handleSwitchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setUseModel(event.target.checked)
   }
 
   const handleSaveChanges = async () => {
@@ -61,7 +60,7 @@ export default function Settings() {
       setError('')
 
       // validate rules
-      if (!useModel && !simple) {
+      if (mode === 'Rules' && !simple) {
         
         const parser = new Parser()
         const expr = parser.parse(rules)
@@ -77,8 +76,8 @@ export default function Settings() {
       mqttClient.publish(
         'logic/config',
         JSON.stringify({
-          useModel: useModel ? 1 : 0,
-          rules: useModel ? '' : simple ? `soilMoisture < ${soilMoistureThreshold}` : rules,
+          mode: mode,
+          rules: mode !== 'Rules' ? '' : simple ? `soilMoisture < ${soilMoistureThreshold}` : rules,
           simple: simple ? 1 : 0,
         }),
         { qos: 1 }
@@ -104,15 +103,19 @@ export default function Settings() {
       </Typography>
       <Stack direction="row" alignItems="center">
         <Typography fontWeight={600} mr={2}>Decision logic: </Typography>
-        <Typography>Rule-based</Typography>
-        <Switch
-          checked={useModel}
-          onChange={handleSwitchChange}
-          inputProps={{ 'aria-label': 'decision logic' }}
-        />
-        <Typography>Machine learning</Typography>
+        <Select
+          id="mode-selector"
+          value={mode}
+          onChange={(event) => setMode(event.target.value as LogicConfig["mode"])}
+        >
+          {MODES.map((key) => (
+            <MenuItem key={key} value={key}>
+              {key}
+            </MenuItem>
+          ))}
+        </Select>
       </Stack>
-      { !useModel && <>
+      { mode === 'Rules' && <>
         <Stack direction="row" gap={3} alignItems="center">
           <Typography fontWeight={600}>Rules:</Typography>
           <FormGroup>
