@@ -11,7 +11,7 @@ export default async function handler(
   switch (method) {
     case 'GET':
       try {
-        let query = 'SELECT useModel, rules, simple FROM logicConfig LIMIT 1'
+        let query = 'SELECT mode, rules, simple FROM logicConfig LIMIT 1'
         const [rows] = await connection.execute(query)
         res.status(200).json((rows as Array<LogicConfig>)[0])
       } catch (err) {

@@ -20,6 +20,7 @@ DB_CONFIG = dict(
     password=os.environ.get('DB_PASSWORD')
 )
 logicConfig = None
+ser = serial.Serial()
 
 SENSORS = ['soilMoisture', 'temperature', 'humidity']
 ACTIONS = {'irrigationOn': b'1', 'irrigationOff': b'0'}
@@ -44,10 +45,15 @@ def on_subscribe(client, userdata, mid, granted_qos, properties=None):
 
 
 def on_message(client, userdata, msg):
+    global ser
     print(msg.topic, str(msg.qos), str(msg.payload), sep=' ')
     group, item = msg.topic.split('/')
 
     if group == 'status' and item == 'control':
+        config = getLogicConfig()
+        if config is None or config['mode'] != 'Manual':
+            return
+
         status = json.loads(msg.payload).get('status')
         if status:
             ser.write(ACTIONS['irrigationOn'])
@@ -75,11 +81,11 @@ def setup_mqtt():
 
 def controlIrrigation(ser, sensorData):
     logicConfig = getLogicConfig()
-    if logicConfig is None:
+    if logicConfig is None or logicConfig['mode'] == 'Manual':
         return
 
     needIrrigation = False
-    if logicConfig['useModel']:
+    if logicConfig['mode'] == 'Model':
         prediction = model.predict([sensorData])
         needIrrigation = prediction[0] == 1
     else:
@@ -102,13 +108,13 @@ def getLogicConfig():
     try:
         conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor()
-        query = 'SELECT useModel, rules FROM logicConfig LIMIT 1'
+        query = 'SELECT mode, rules FROM logicConfig LIMIT 1'
         cursor.execute(query)
         result = cursor.fetchone()
         if result is None:
             return None
         logicConfig = {
-            'useModel': result[0],
+            'mode': result[0],
             'rules': result[1]
         }
         return logicConfig

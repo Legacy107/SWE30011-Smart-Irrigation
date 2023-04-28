@@ -79,12 +79,12 @@ def on_message(client, userdata, msg):
             VALUES ({status}, '{readingTime}')
         """
     elif group == 'logic':
-        useModel = payload.get('useModel')
+        mode = payload.get('mode')
         simple = payload.get('simple')
         rules = payload.get('rules')
         sql_query = f"""
             UPDATE logicConfig
-            SET useModel = {useModel}, rules = '{rules}', simple = {simple}
+            SET mode = '{mode}', rules = '{rules}', simple = {simple}
         """
 
     execute_query(sql_query)
