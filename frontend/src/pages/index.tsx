@@ -60,7 +60,7 @@ export default function Home() {
     const data = JSON.parse(statusMessage?.message as string)
     setStatus(parseInt(data.status))
 
-    if (!isLive)
+    if (!statusData || !isLive)
       return
     setStatusData((statusData) => [{
       status: parseInt(data.status),
@@ -69,7 +69,7 @@ export default function Home() {
   }, [statusMessage])
 
   useEffect(() => {
-    if (!sensorMessage || !isLive)
+    if (!data || !sensorMessage || !isLive)
       return
     const sensor = sensorMessage?.topic?.split('/')[1]
     const messageData = JSON.parse(sensorMessage?.message as string)
