@@ -19,6 +19,8 @@ DB_CONFIG = dict(
     user=os.environ.get('DB_USER'),
     password=os.environ.get('DB_PASSWORD')
 )
+SERIAL_PORT = os.environ.get('SERIAL_PORT')
+
 logicConfig = None
 ser = serial.Serial()
 
@@ -45,7 +47,6 @@ def on_subscribe(client, userdata, mid, granted_qos, properties=None):
 
 
 def on_message(client, userdata, msg):
-    global ser
     print(msg.topic, str(msg.qos), str(msg.payload), sep=' ')
     group, item = msg.topic.split('/')
 
@@ -131,7 +132,7 @@ if __name__ == '__main__':
     print('Starting edge device...')
     getLogicConfig()
     setup_mqtt()
-    ser = serial.Serial('/dev/tty.usbmodem1101', 115200)
+    ser = serial.Serial(SERIAL_PORT, 115200)
 
     while True:
         line = ser.readline().decode('utf-8').rstrip()
